@@ -1,0 +1,42 @@
+# Base Image
+FROM apache/airflow:2.6.1
+LABEL maintainer="Cevat Batuhan Tolon"
+USER root
+
+RUN apt-get update -y && \
+    apt-get upgrade -yqq && \
+    apt-get install -yqq --no-install-recommends \
+    python3-dev \
+    wget \
+    libczmq-dev \
+    curl \
+    libssl-dev \
+    git \
+    inetutils-telnet \
+    bind9utils freetds-dev \
+    libkrb5-dev \
+    libsasl2-dev \
+    libffi-dev libpq-dev \
+    freetds-bin build-essential \
+    default-libmysqlclient-dev \
+    apt-utils \
+    rsync \
+    zip \
+    unzip \
+    gcc \
+    vim \
+    netcat \
+    && apt-get autoremove -yqq --purge && apt-get clean
+
+# Pip Dependencies
+USER airflow
+#RUN pip install --no-cache-dir -r /requirements.txt
+
+# Airflow Providers
+RUN pip install apache-airflow-providers-apache-spark && \
+    pip install apache-airflow-providers-slack && \
+    pip install apache-airflow-providers-http \
+    pip install apache-airflow-providers-docker
+    #pip install apache-airflow-providers-apache-hdfs && \
+    #pip install apache-airflow-providers-apache-hive
+

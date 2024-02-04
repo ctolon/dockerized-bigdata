@@ -1,0 +1,31 @@
+version: '3'
+services:  
+  hue:
+    image: hue
+    build: ./docker/hue
+    restart: always
+    container_name: hue
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    depends_on:
+      - hive-server
+      - postgres
+    ports:
+      - "32762:8888"
+    volumes:
+      - ./mnt/hue/hue.ini:/usr/share/hue/desktop/conf/z-hue.ini
+    environment:
+      - SERVICE_PRECONDITION=hive-server:10000 postgres:5432
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hue", "8888" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+networks:
+  big-data-network:
+    external: true
+    driver: bridge

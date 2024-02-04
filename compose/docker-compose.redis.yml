@@ -1,0 +1,28 @@
+version: '3'
+services:   
+  redis:
+    image: redis:latest
+    container_name: airflow-redis
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+    expose:
+      - ${REDIS_PORT}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: always
+
+networks:
+  big-data-network:
+    external: true
+    driver: bridge

@@ -1,0 +1,271 @@
+version: '3'
+services:  
+  hadoop-namenode:
+    image: hadoop-namenode
+    build: ./docker/hadoop/hadoop-namenode
+    restart: always
+    container_name: hadoop-namenode
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    ports:
+      - 9870:9870
+      - 9000:9000
+    volumes:
+      #- ./mnt/hadoop/namenode:/hadoop/dfs/name
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=hadoop_cluster
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hadoop-namenode", "9870" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  hadoop-datanode:
+    image: hadoop-datanode
+    build: ./docker/hadoop/hadoop-datanode
+    restart: always
+    container_name: hadoop-datanode
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    ports:
+      - "9864:9864"
+    depends_on:
+      - hadoop-namenode
+    volumes:
+      #- ./mnt/hadoop/datanode:/hadoop/dfs/data
+      - hadoop_datanode:/hadoop/dfs/data
+    environment:
+      - SERVICE_PRECONDITION=hadoop-namenode:9870
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hadoop-datanode", "9864" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  hadoop-resourcemanager:
+    image: hadoop-resourcemanager
+    build: ./docker/hadoop/hadoop-resourcemanager
+    restart: always
+    container_name: hadoop-resourcemanager
+    ports:
+      - "8032:8032"
+      - "8030:8030"
+      - "8031:8031"
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    networks:
+     - big-data-network
+    environment:
+      SERVICE_PRECONDITION: "hadoop-namenode:9000 hadoop-namenode:9870 hadoop-datanode:9864"
+
+  hadoop-nodemanager-1:
+    image: hadoop-nodemanager
+    build: ./docker/hadoop/hadoop-nodemanager
+    restart: always
+    container_name: hadoop-nodemanager-1
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    networks:
+     - big-data-network
+    environment:
+      SERVICE_PRECONDITION: "hadoop-namenode:9000 hadoop-namenode:9870 hadoop-datanode:9864 hadoop-resourcemanager:8032"
+
+  hadoop-historyserver:
+    image: hadoop-historyserver
+    build: ./docker/hadoop/hadoop-historyserver
+    restart: always
+    container_name: hadoop-historyserver
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    networks:
+     - big-data-network
+    ports:
+      - "8188:8188"
+    environment:
+      SERVICE_PRECONDITION: "hadoop-namenode:9000 hadoop-namenode:9870 hadoop-datanode:9864 hadoop-resourcemanager:8088"
+    volumes:
+      - hadoop_historyserver:/hadoop/yarn/timeline
+
+  hive-metastore:
+    image: hive-metastore
+    build: ./docker/hive/hive-metastore
+    restart: always
+    container_name: hive-metastore
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    depends_on:
+      - hadoop-namenode
+      - hadoop-datanode
+      - postgres
+    environment:
+      - SERVICE_PRECONDITION=hadoop-namenode:9870 hadoop-datanode:9864 postgres:5432
+    ports:
+      - "9083:9083"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hive-metastore", "9083" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  hive-server:
+    image: hive-server
+    build: ./docker/hive/hive-server
+    restart: always
+    container_name: hive-server
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    depends_on:
+      - hive-metastore
+    environment:
+      - SERVICE_PRECONDITION=hive-metastore:9083
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hive-server", "10002" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  hive-webhcat:
+    image: hive-webhcat
+    build: ./docker/hive/hive-webhcat
+    restart: always
+    container_name: hive-webhcat
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    depends_on:
+      - hive-server
+    environment:
+      - SERVICE_PRECONDITION=hive-server:10000
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hive-webhcat", "50111" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  postgres:
+    image: postgres-bigdata
+    build: './docker/postgres'
+    restart: always
+    container_name: postgres
+    hostname: postgres
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    expose:
+      - ${POSTGRES_PORT}
+    #volumes:
+      #- ./mnt/postgres:/var/lib/postgresql/data/pgdata
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      #- PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "airflow", "-U", "airflow" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  hue:
+    image: hue
+    build: ./docker/hue
+    restart: always
+    container_name: hue
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    depends_on:
+      - hive-server
+      - postgres
+    ports:
+      - "32762:8888"
+    volumes:
+      - ./mnt/hue/hue.ini:/usr/share/hue/desktop/conf/z-hue.ini
+    environment:
+      - SERVICE_PRECONDITION=hive-server:10000 postgres:5432
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "hue", "8888" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+#  adminer:
+#    image: wodby/adminer:latest
+#    restart: always
+#    container_name: adminer
+#    networks:
+#      - big-data-network
+#    logging:
+#      driver: "json-file"
+#      options:
+#          max-file: "5"
+#          max-size: "10m"
+#    ports:
+#      - "32767:9000"
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#    environment:
+#      - ADMINER_DEFAULT_DB_DRIVER=psql
+#      - ADMINER_DEFAULT_DB_HOST=postgres
+#      - ADMINER_DEFAULT_DB_NAME=airflow
+#    healthcheck:
+#      test: [ "CMD", "nc", "-z", "adminer", "9000" ]
+#      timeout: 45s
+#      interval: 10s
+#      retries: 10
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
+  hadoop_historyserver:
+
+networks:
+  big-data-network:
+    external: true
+    driver: bridge

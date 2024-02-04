@@ -1,0 +1,148 @@
+version: '3'
+services:
+  spark-master:
+    image: spark-master
+    build: ./docker/spark/spark-master
+    container_name: ${SPARK_MASTER_SVC:-spark-master}
+    hostname: ${SPARK_MASTER_SVC:-spark-master}
+    networks:
+      - big-data-network
+    environment:
+      - INIT_DAEMON_STEP=setup_spark
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: always
+    env_file: .env
+    ports:
+      - "32766:8082"
+      - "7077:7077"
+      #- "32765:7077"
+    volumes:
+      - ./mnt/spark/apps:/opt/spark-workspace/apps
+      - ./mnt/spark/data:/opt/spark-workspace/data
+      - spark-shared-workspace:/opt/spark-workspace
+      - spark-logs:${SPARK_HOME}/spark-events
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "spark-master", "8082" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  spark-worker:
+    image: spark-worker
+    build: ./docker/spark/spark-worker
+    container_name: ${SPARK_WORKER_SVC:-spark-worker}
+    hostname: ${SPARK_WORKER_SVC:-spark-worker}
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - spark-master
+    ports:
+      - "32764:8081"
+    volumes:
+      - ./mnt/spark/apps:/opt/spark-workspace/apps
+      - ./mnt/spark/data:/opt/spark-workspace/data
+      - spark-shared-workspace:/opt/spark-workspace
+      - spark-logs:${SPARK_HOME}/spark-events
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "spark-worker", "8081" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  spark-history-server:
+      image: spark-history-server
+      build: ./docker/spark/spark-master
+      container_name: ${SPARK_HS_SVC:-spark-history-server}
+      hostname: ${SPARK_HS_SVC:-spark-history-server}
+      networks:
+        - big-data-network
+      logging:
+        driver: "json-file"
+        options:
+            max-file: "5"
+            max-size: "10m"
+      restart: unless-stopped
+      depends_on:
+        - spark-master
+        - spark-worker
+      ports:
+        - "18081:18081"
+      volumes:
+      - spark-logs:${SPARK_HOME}/spark-events
+      healthcheck:
+        test: [ "CMD", "nc", "-z", "spark-history-server", "18081" ]
+        timeout: 45s
+        interval: 10s
+        retries: 10
+
+  jupyter-spark:
+    image: jupyter-spark
+    build: ./docker/jupyter-spark
+    container_name: jupyter-spark
+    ports:
+      - 8888:8888
+      - 4040:4040
+    expose:
+      - "8888"
+    depends_on:
+      - spark-master
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=
+    networks:
+     - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    volumes:
+      - spark-shared-workspace:/opt/spark-workspace
+
+  livy:
+    image: livy
+    build: ./docker/livy
+    container_name: livy
+    networks:
+      - big-data-network
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: always
+    env_file: .env
+    depends_on:
+      - spark-worker
+    ports:
+      - "32758:8998"
+    environment:
+      - SPARK_MASTER_ENDPOINT=${SPARK_MASTER_HOST}
+      - SPARK_MASTER_PORT=${SPARK_MASTER_PORT}
+      - DEPLOY_MODE=client
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "livy", "8998" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+volumes:
+  spark-logs:
+  spark-shared-workspace:
+    name: "hadoop-distributed-file-system"
+    driver: local
+
+networks:
+  big-data-network:
+    external: true
+    driver: bridge
+  
