@@ -14,7 +14,6 @@ LOG=$SPARK_HS_LOG_DIR/spark-hs.out
 ln -sf /dev/stdout $LOG
 
 # See https://spark.apache.org/docs/latest/monitoring.html#environment-variables
-# export SPARK_HISTORY_OPTS="-Dspark.history.fs.logDirectory=$SPARK_HOME/spark-events -Dspark.history.ui.port=$SPARK_HS_UI_PORT -Dspark.master=spark://$SPARK_MASTER_HOST:$SPARK_MASTER_PORT" 
+export SPARK_HISTORY_OPTS="-Dspark.history.fs.logDirectory=$SPARK_HOME/spark-events -Dspark.history.ui.port=$SPARK_HS_UI_PORT" 
 
-cd "${SPARK_HOME}/bin" && "${SPARK_HOME}/sbin/../bin/spark-class org.apache.spark.deploy.history.HistoryServer \
->> $LOG"
+${SPARK_HOME}/sbin/../bin/spark-class org.apache.spark.deploy.history.HistoryServer >> $LOG

@@ -263,38 +263,41 @@ services:
       interval: 10s
       retries: 10
 
-  #spark-history-server:
-  #  image: spark-history-server
-  #  build: ./spark/spark-master
-  #  container_name: ${SPARK_HS_SVC:-spark-history-server}
-  #  hostname: ${SPARK_HS_SVC:-spark-history-server}
-  #  logging:
-  #    driver: "json-file"
-  #    options:
-  #      max-file: "5"
-  #      max-size: "10m"
-  #  restart: unless-stopped
-  #  depends_on:
-  #      - spark-master
-  #      - spark-worker
-  #    # network_mode: host
-  #  networks:
-  #    big-data-network:
-  #      ipv4_address: 172.23.5.4
-  #  ports:
-  #    - "18081:18081"
-  #  volumes:
-  #    - spark-logs:${SPARK_HOME}/spark-events
-  #  environment:
-  #    SPARK_MASTER_HOST: 172.23.5.2
-  #    SPARK_LOCAL_IP: 172.23.5.4
-  #    SPARK_LOCAL_DNS: 172.23.5.4
-  #    SPARK_LOCAL_HOSTNAME: ${SPARK_HS_SVC:-spark-history-server}
-  #  healthcheck:
-  #    test: [ "CMD", "nc", "-z", "spark-history-server", "18081" ]
-  #    timeout: 45s
-  #    interval: 10s
-  #    retries: 10
+  spark-history-server:
+    image: spark-history-server
+    build: ./spark/history-server
+    container_name: ${SPARK_HS_SVC:-spark-history-server}
+    hostname: ${SPARK_HS_SVC:-spark-history-server}
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+    restart: unless-stopped
+    depends_on:
+        - spark-master
+        #- spark-worker
+      # network_mode: host
+    networks:
+      big-data-network:
+        ipv4_address: 172.23.5.7
+    ports:
+      - "18081:18081"
+    volumes:
+      - spark-logs:${SPARK_HOME}/spark-events
+    environment:
+      SPARK_MASTER_HOST: 172.23.5.2
+      SPARK_LOCAL_IP: 172.23.5.7
+      SPARK_LOCAL_DNS: 172.23.5.7
+      #SPARK_LOCAL_HOSTNAME: ${SPARK_HS_SVC:-spark-history-server}
+      SPARK_LOCAL_HOSTNAME: 172.23.5.7
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "spark-history-server", "18081" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    #entrypoint: /bin/bash
+    #tty: true
 
   jupyter-spark:
     image: jupyter-spark
