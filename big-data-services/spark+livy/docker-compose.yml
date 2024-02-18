@@ -1,4 +1,6 @@
 # Spark Cluster
+# https://stackoverflow.com/questions/43692453/what-is-spark-local-ip-spark-driver-host-spark-driver-bindaddress-and-spark-dri
+# https://stackoverflow.com/questions/28901123/why-do-spark-jobs-fail-with-org-apache-spark-shuffle-metadatafetchfailedexceptio
 version: '3'
 services:
 
@@ -23,27 +25,32 @@ services:
       big-data-network:
         ipv4_address: 172.23.5.2
     ports:
-      - "32766:8082"
+      - "32760:8082"
       - "7077:7077"
-      - "32765:7077"
+      - "32761:7077"
     volumes:
       - ./mnt/spark/apps:/opt/spark-workspace/apps
       - ./mnt/spark/data:/opt/spark-workspace/data
 
       - ../conf/hive/hive-site.xml:${SPARK_HOME}/conf/hive-site.xml
+      - ../conf/spark/spark-defaults.conf:${SPARK_HOME}/conf/spark-defaults.conf
 
       - spark-shared-workspace:/opt/spark-workspace
       - spark-logs:${SPARK_HOME}/spark-events
 
     environment:
 
-      #SPARK_MASTER_HOST: 192.168.3.104
-      #SPARK_LOCAL_IP: 192.168.3.104
+      #SPARK_MASTER_HOST: 192.168.3.106
+      #SPARK_LOCAL_IP: 192.168.3.106
       #INIT_DAEMON_STEP: setup_spark
 
       SPARK_MASTER_HOST: 172.23.5.2
+      SPARK_MASTER: spark://172.23.5.2:7077
       SPARK_LOCAL_IP: 172.23.5.2
+      SPARK_PUBLIC_DNS: 172.23.5.2
       INIT_DAEMON_STEP: setup_spark
+
+      # SPARK_MASTER_
 
     healthcheck:
       test: [ "CMD", "nc", "-z", "spark-master", "8082" ]
@@ -51,11 +58,11 @@ services:
       interval: 10s
       retries: 10
 
-  spark-worker:
+  spark-worker-01:
     image: spark-worker
     build: ./spark/spark-worker
-    container_name: ${SPARK_WORKER_SVC:-spark-worker}
-    hostname: ${SPARK_WORKER_SVC:-spark-worker}
+    container_name: spark-worker-01
+    hostname: spark-worker-01
     logging:
       driver: "json-file"
       options:
@@ -76,6 +83,7 @@ services:
       - ./mnt/spark/data:/opt/spark-workspace/data
 
       - ../conf/hive/hive-site.xml:${SPARK_HOME}/conf/hive-site.xml
+      - ../conf/spark/spark-defaults.conf:${SPARK_HOME}/conf/spark-defaults.conf
 
       - spark-shared-workspace:/opt/spark-workspace
       - spark-logs:${SPARK_HOME}/spark-events
@@ -90,11 +98,164 @@ services:
 
       SPARK_MASTER_HOST: 172.23.5.2
       SPARK_LOCAL_IP: 172.23.5.3
-      SPARK_LOCAL_HOSTNAME: ${SPARK_WORKER_SVC:-spark-worker}
+      SPARK_PUBLIC_DNS: 172.23.5.3
+      # SPARK_LOCAL_HOSTNAME: spark-worker-01
+      SPARK_LOCAL_HOSTNAME: 172.23.5.3
+
+      SPARK_EXECUTOR_CORES: 3
+      SPARK_EXECUTOR_MEMORY: 10g
+      SPARK_DAEMON_MEMORY: 1g # Spark shuffle service memory size
+      SPARK_EXECUTOR_INSTANCES: 2
+
+  spark-worker-02:
+    image: spark-worker
+    build: ./spark/spark-worker
+    container_name: spark-worker-02
+    hostname: spark-worker-02
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - spark-master
+    #network_mode: host
+    networks:
+      big-data-network:
+        ipv4_address: 172.23.5.4
+    ports:
+      - "32765:8081"
+    volumes:
+      - ./mnt/spark/apps:/opt/spark-workspace/apps
+      - ./mnt/spark/data:/opt/spark-workspace/data
+
+      - ../conf/hive/hive-site.xml:${SPARK_HOME}/conf/hive-site.xml
+      - ../conf/spark/spark-defaults.conf:${SPARK_HOME}/conf/spark-defaults.conf
+
+      - spark-shared-workspace:/opt/spark-workspace
+      - spark-logs:${SPARK_HOME}/spark-events
+    environment:
+      #extra_hosts:
+      #  - "spark-master:192.168.3.104"
+      #SPARK_MASTER_HOST: 192.168.3.104
+      #SPARK_MASTER_PORT: 7077
+      #SPARK_MASTER: spark://192.168.3.104:7077
+      #SPARK_LOCAL_IP:  192.168.3.104
+      #SPARK_LOCAL_HOSTNAME: ${SPARK_WORKER_SVC:-spark-worker}
+
+      SPARK_MASTER_HOST: 172.23.5.2
+      SPARK_LOCAL_IP: 172.23.5.4
+      SPARK_PUBLIC_DNS: 172.23.5.4
+      # SPARK_LOCAL_HOSTNAME: spark-worker-02
+      SPARK_LOCAL_HOSTNAME: 172.23.5.4
+
+      SPARK_EXECUTOR_CORES: 3
+      SPARK_EXECUTOR_MEMORY: 10g
+      SPARK_DAEMON_MEMORY: 1g
+      SPARK_EXECUTOR_INSTANCES: 2
+
+  spark-worker-03:
+    image: spark-worker
+    build: ./spark/spark-worker
+    container_name: spark-worker-03
+    hostname: spark-worker-03
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - spark-master
+    #network_mode: host
+    networks:
+      big-data-network:
+        ipv4_address: 172.23.5.5
+    ports:
+      - "32766:8081"
+    volumes:
+      - ./mnt/spark/apps:/opt/spark-workspace/apps
+      - ./mnt/spark/data:/opt/spark-workspace/data
+
+      - ../conf/hive/hive-site.xml:${SPARK_HOME}/conf/hive-site.xml
+      - ../conf/spark/spark-defaults.conf:${SPARK_HOME}/conf/spark-defaults.conf
+
+      - spark-shared-workspace:/opt/spark-workspace
+      - spark-logs:${SPARK_HOME}/spark-events
+    environment:
+      #extra_hosts:
+      #  - "spark-master:192.168.3.104"
+      #SPARK_MASTER_HOST: 192.168.3.104
+      #SPARK_MASTER_PORT: 7077
+      #SPARK_MASTER: spark://192.168.3.104:7077
+      #SPARK_LOCAL_IP:  192.168.3.104
+      #SPARK_LOCAL_HOSTNAME: ${SPARK_WORKER_SVC:-spark-worker}
+
+      SPARK_MASTER_HOST: 172.23.5.2
+      SPARK_LOCAL_IP: 172.23.5.5
+      SPARK_PUBLIC_DNS: 172.23.5.5
+      # SPARK_LOCAL_HOSTNAME: spark-worker-03
+      SPARK_LOCAL_HOSTNAME: 172.23.5.5
+
+      SPARK_EXECUTOR_CORES: 3
+      SPARK_EXECUTOR_MEMORY: 10g
+      SPARK_DAEMON_MEMORY: 1g
+      SPARK_EXECUTOR_INSTANCES: 2
+
+  spark-worker-04:
+    image: spark-worker
+    build: ./spark/spark-worker
+    container_name: spark-worker-04
+    hostname: spark-worker-04
+    logging:
+      driver: "json-file"
+      options:
+          max-file: "5"
+          max-size: "10m"
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - spark-master
+    #network_mode: host
+    networks:
+      big-data-network:
+        ipv4_address: 172.23.5.6
+    ports:
+      - "32767:8081"
+    volumes:
+      - ./mnt/spark/apps:/opt/spark-workspace/apps
+      - ./mnt/spark/data:/opt/spark-workspace/data
+
+      - ../conf/hive/hive-site.xml:${SPARK_HOME}/conf/hive-site.xml
+      - ../conf/spark/spark-defaults.conf:${SPARK_HOME}/conf/spark-defaults.conf
+
+      - spark-shared-workspace:/opt/spark-workspace
+      - spark-logs:${SPARK_HOME}/spark-events
+    environment:
+      #extra_hosts:
+      #  - "spark-master:192.168.3.104"
+      #SPARK_MASTER_HOST: 192.168.3.104
+      #SPARK_MASTER_PORT: 7077
+      #SPARK_MASTER: spark://192.168.3.104:7077
+      #SPARK_LOCAL_IP:  192.168.3.104
+      #SPARK_LOCAL_HOSTNAME: ${SPARK_WORKER_SVC:-spark-worker}
+
+      SPARK_MASTER_HOST: 172.23.5.2
+      SPARK_LOCAL_IP: 172.23.5.6
+      SPARK_PUBLIC_DNS: 172.23.5.6
+      # SPARK_LOCAL_HOSTNAME: spark-worker-04
+      SPARK_LOCAL_HOSTNAME: 172.23.5.6
+
+      SPARK_EXECUTOR_CORES: 3
+      SPARK_EXECUTOR_MEMORY: 10g
+      SPARK_DAEMON_MEMORY: 1g
+      SPARK_EXECUTOR_INSTANCES: 2
 
     #tty: true
     #command: /bin/bash
-
 
     healthcheck:
       test: [ "CMD", "nc", "-z", "spark-worker", "8081" ]
@@ -102,37 +263,38 @@ services:
       interval: 10s
       retries: 10
 
-#  spark-history-server:
-#      image: spark-history-server
-#      build: ./spark/spark-master
-#      container_name: ${SPARK_HS_SVC:-spark-history-server}
-#      hostname: ${SPARK_HS_SVC:-spark-history-server}
-#      logging:
-#        driver: "json-file"
-#        options:
-#            max-file: "5"
-#            max-size: "10m"
-#      restart: unless-stopped
-#      depends_on:
-#        - spark-master
-#        - spark-worker
-#      # network_mode: host
-#      networks:
-#        big-data-network:
-#          ipv4_address: 172.23.5.4
-#      ports:
-#        - "18081:18081"
-#      volumes:
-#      - spark-logs:${SPARK_HOME}/spark-events
-#      environment:
-#        SPARK_MASTER_HOST: 172.23.5.2
-#        SPARK_LOCAL_IP: 172.23.5.4
-#        SPARK_LOCAL_HOSTNAME: ${SPARK_HS_SVC:-spark-history-server}
-#      healthcheck:
-#        test: [ "CMD", "nc", "-z", "spark-history-server", "18081" ]
-#        timeout: 45s
-#        interval: 10s
-#        retries: 10
+  #spark-history-server:
+  #  image: spark-history-server
+  #  build: ./spark/spark-master
+  #  container_name: ${SPARK_HS_SVC:-spark-history-server}
+  #  hostname: ${SPARK_HS_SVC:-spark-history-server}
+  #  logging:
+  #    driver: "json-file"
+  #    options:
+  #      max-file: "5"
+  #      max-size: "10m"
+  #  restart: unless-stopped
+  #  depends_on:
+  #      - spark-master
+  #      - spark-worker
+  #    # network_mode: host
+  #  networks:
+  #    big-data-network:
+  #      ipv4_address: 172.23.5.4
+  #  ports:
+  #    - "18081:18081"
+  #  volumes:
+  #    - spark-logs:${SPARK_HOME}/spark-events
+  #  environment:
+  #    SPARK_MASTER_HOST: 172.23.5.2
+  #    SPARK_LOCAL_IP: 172.23.5.4
+  #    SPARK_LOCAL_DNS: 172.23.5.4
+  #    SPARK_LOCAL_HOSTNAME: ${SPARK_HS_SVC:-spark-history-server}
+  #  healthcheck:
+  #    test: [ "CMD", "nc", "-z", "spark-history-server", "18081" ]
+  #    timeout: 45s
+  #    interval: 10s
+  #    retries: 10
 
   jupyter-spark:
     image: jupyter-spark

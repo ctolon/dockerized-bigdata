@@ -16,15 +16,15 @@ ENV SPARK_LOGS_HDFS_PATH=${SPARK_LOGS_HDFS_PATH:-${SPARK_HOME}/logs}
 
 
 # Install Python packages for PySpark
-COPY requirements.txt .
-RUN pip3 install --upgrade pip setuptools wheel
-RUN pip3 install -r requirements.txt
+#COPY requirements.txt .
+#RUN pip3 install --upgrade pip setuptools wheel
+#RUN pip3 install -r requirements.txt
 
 # PySpark configuration
-ENV PYSPARK_PYTHON python3
-ENV PYTHONPATH=$SPARK_HOME/python/:$PYTHONPATH
+#ENV PYSPARK_PYTHON python3
+#ENV PYTHONPATH=$SPARK_HOME/python/:$PYTHONPATH
 
-ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python3
+#ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python3
 
 #export PYSPARK_DRIVER_PYTHON="jupyter"
 #export PYSPARK_DRIVER_PYTHON_OPTS="notebook"
